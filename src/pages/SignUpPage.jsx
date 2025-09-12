@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import {
-  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
 } from "firebase/auth";
@@ -19,7 +19,7 @@ const GoogleIcon = () => (
 
 // A placeholder for the abstract background image on the left
 const AbstractBackground = () => (
-  <div className="absolute inset-0 w-full h-full bg-[#D4E9E2] rounded-2xl overflow-hidden">
+  <div className="absolute inset-0 w-full h-full bg-[#E6F3F0] rounded-2xl overflow-hidden">
     <svg
       width="100%"
       height="100%"
@@ -28,55 +28,72 @@ const AbstractBackground = () => (
       xmlns="http://www.w3.org/2000/svg"
     >
       <defs>
-        <filter id="soft-blur">
+        <filter id="soft-blur-signup">
           <feGaussianBlur in="SourceGraphic" stdDeviation="5" />
         </filter>
       </defs>
       <path
         d="M-50 150 Q100 50, 200 180 T450 150"
-        stroke="#66B29A"
+        stroke="#AED9C6"
         strokeWidth="30"
         fill="none"
         strokeLinecap="round"
-        style={{ filter: "url(#soft-blur)", opacity: 0.3 }}
+        style={{ filter: "url(#soft-blur-signup)", opacity: 0.5 }}
       />
       <path
         d="M-50 250 Q150 350, 250 220 T450 250"
-        stroke="#8FBC8F"
+        stroke="#BBDBCB"
         strokeWidth="40"
         fill="none"
         strokeLinecap="round"
-        style={{ filter: "url(#soft-blur)", opacity: 0.4 }}
+        style={{ filter: "url(#soft-blur-signup)", opacity: 0.6 }}
       />
-      <circle cx="320" cy="80" r="12" fill="white" style={{ opacity: 0.2 }} />
-      <circle cx="340" cy="95" r="8" fill="white" style={{ opacity: 0.15 }} />
+      <circle
+        cx="100"
+        cy="300"
+        r="12"
+        fill="white"
+        style={{ opacity: 0.3 }}
+      />
+      <circle
+        cx="120"
+        cy="315"
+        r="8"
+        fill="white"
+        style={{ opacity: 0.25 }}
+      />
     </svg>
   </div>
 );
 
-export default function LoginPage() {
+export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false); // <-- New loading state
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Email/Password login
-  const handleEmailLogin = async (e) => {
+  // Email/Password signup
+  const handleEmailSignup = async (e) => {
     e.preventDefault();
-    setIsLoading(true); // <-- Start loading
+    if (password !== confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+    setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await createUserWithEmailAndPassword(auth, email, password);
       navigate("/dashboard");
     } catch (error) {
       alert("❌ " + error.message);
     } finally {
-      setIsLoading(false); // <-- Stop loading
+      setIsLoading(false);
     }
   };
 
-  // Google login
+  // Google signup/login
   const handleGoogleLogin = async () => {
-    setIsLoading(true); // <-- Start loading
+    setIsLoading(true);
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
@@ -84,7 +101,7 @@ export default function LoginPage() {
     } catch (error) {
       alert("❌ " + error.message);
     } finally {
-      setIsLoading(false); // <-- Stop loading
+      setIsLoading(false);
     }
   };
 
@@ -109,18 +126,18 @@ export default function LoginPage() {
               <AbstractBackground />
               <div className="relative flex items-end h-full p-4">
                 <p className="text-gray-600">
-                  Gentle support for every student, anytime.
+                  Join a community focused on student wellbeing.
                 </p>
               </div>
             </div>
           </div>
           <div className="w-full max-w-md mx-auto">
             <div className="bg-white p-8 rounded-3xl shadow-sm">
-              <h2 className="text-2xl font-bold mb-1">Welcome back</h2>
+              <h2 className="text-2xl font-bold mb-1">Create your account</h2>
               <p className="text-gray-500 mb-8">
-                Log in to continue your wellbeing journey
+                Start your journey with StudentCare
               </p>
-              <form onSubmit={handleEmailLogin}>
+              <form onSubmit={handleEmailSignup}>
                 <div className="mb-4">
                   <label
                     className="block text-sm font-medium text-gray-700 mb-1"
@@ -135,7 +152,8 @@ export default function LoginPage() {
                     placeholder="name@school.edu"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    disabled={isLoading} // <-- Disable when loading
+                    required
+                    disabled={isLoading}
                   />
                 </div>
                 <div className="mb-4">
@@ -152,33 +170,52 @@ export default function LoginPage() {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading} // <-- Disable when loading
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="mb-6">
+                  <label
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                    htmlFor="confirm-password"
+                  >
+                    Confirm Password
+                  </label>
+                  <input
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 transition-colors disabled:bg-gray-100"
+                    type="password"
+                    id="confirm-password"
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    disabled={isLoading}
                   />
                 </div>
                 <button
                   type="submit"
                   className="w-full bg-[#1A936F] text-white font-bold py-3 px-4 rounded-full hover:bg-[#167d5e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isLoading} // <-- Disable when loading
+                  disabled={isLoading}
                 >
-                  {isLoading ? "Logging in..." : "Log in"}
+                  {isLoading ? "Creating account..." : "Create Account"}
                 </button>
               </form>
               <button
                 type="button"
                 onClick={handleGoogleLogin}
                 className="w-full mt-4 flex items-center justify-center bg-white border border-gray-300 font-bold py-3 px-4 rounded-full hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isLoading} // <-- Disable when loading
+                disabled={isLoading}
               >
                 <GoogleIcon /> Continue with Google
               </button>
               <div className="text-center text-sm text-gray-500 mt-8">
-                New here?{" "}
-                <a
-                  href="/signup"
+                Already have an account?{" "}
+                <Link
+                  to="/login"
                   className="font-bold text-teal-600 hover:text-teal-700"
                 >
-                  Create an account
-                </a>
+                  Log in
+                </Link>
               </div>
             </div>
           </div>
@@ -187,4 +224,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

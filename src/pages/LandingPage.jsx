@@ -83,6 +83,9 @@ const Hero = () => {
   const handleLoginClick=()=>{
     navigate('/login')
   }
+  const handleSignUpClick=()=>{
+    navigate('/signup')
+  }
 
   return (
     <section className="bg-white py-16 md:py-24">
@@ -105,7 +108,7 @@ const Hero = () => {
               </button>
 
               <button
-                onClick={handleLoginClick}
+                onClick={handleSignUpClick}
                 className="bg-gray-200 text-gray-800 font-semibold py-3 px-8 rounded-full hover:bg-gray-300 transition-all duration-300"
               >
                 Signup
