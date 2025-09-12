@@ -118,7 +118,7 @@ const Hero = () => {
           </div>
           <div>
             <img
-              src="https://images.unsplash.com/photo-1593113598332-cd288d6494a4?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+              src="mind-calm.png"
               alt="Student studying peacefully outdoors"
               className="rounded-3xl shadow-2xl w-full h-auto object-cover"
               onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/600x400/a7f3d0/334155?text=StudentCare'; }}
