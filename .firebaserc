@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "mindease-9d1d0"
-  }
+    "default": "mindease-final-sih"
+  },
+  "targets": {},
+  "etags": {}
 }

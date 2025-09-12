@@ -4,14 +4,15 @@ import { getAuth } from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
 
 // Your Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyDrWWt5OsoQKiVamVIfAIHymLPTdGf38yc",
-  authDomain: "mindease-9d1d0.firebaseapp.com",
-  projectId: "mindease-9d1d0",
-  storageBucket: "mindease-9d1d0.appspot.com", // Corrected storage bucket domain
-  messagingSenderId: "209981198698",
-  appId: "1:209981198698:web:1ba5d854ba88c033eb9513",
-  measurementId: "G-RG15FEPB6V",
+  apiKey: "AIzaSyAdYbvGbLcWaLRXn26bQ-CRnHXEIqBfAXo",
+  authDomain: "mindease-final-sih.firebaseapp.com",
+  projectId: "mindease-final-sih",
+  storageBucket: "mindease-final-sih.firebasestorage.app",
+  messagingSenderId: "85516995115",
+  appId: "1:85516995115:web:9038aa908af446b9a5b86e",
+  measurementId: "G-6M32MPXT16",
 };
 
 // Initialize Firebase
