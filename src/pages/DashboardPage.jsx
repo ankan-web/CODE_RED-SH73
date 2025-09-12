@@ -187,7 +187,7 @@ export default function DashboardPage() {
               <Card>
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-bold text-lg text-gray-800">Chat with CareBot</h3>
+                    <h3 className="font-bold text-lg text-gray-800">Chat with MindEase</h3>
                     <p className="text-sm text-gray-600 mt-2 max-w-md">Have a question or need to talk? Start a supportive chat in seconds.</p>
                   </div>
                   <span className="bg-gray-100 text-gray-600 text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap">24/7</span>
