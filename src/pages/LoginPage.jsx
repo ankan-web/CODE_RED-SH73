@@ -71,7 +71,7 @@ export default function LoginPage() {
           {/* Left Side: Image Panel */}
           <div className="hidden lg:flex flex-col items-center justify-center bg-white p-8 rounded-3xl shadow-sm aspect-square">
             <div className="relative w-full h-full">
-              <img src="MindEase.jpeg" alt=" human brain" />
+              <img src="total-shape-Ianw4RdVuoo-unsplash.jpg" alt=" human brain" />
               <div className="relative flex items-end h-full p-4">
                 <p className="text-gray-600">Gentle support for every student, anytime.</p>
               </div>
