@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Sidebar from '../components/Sidebar';
 
-// --- Mock User Data (This would come from your auth context or API) ---
+// --- Mock User Data ---
 const currentUser = {
   name: 'Maya',
   profileImageUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=1780&auto=format=fit=crop'
@@ -33,24 +33,20 @@ const SuggestionCard = ({ title, description }) => (
   </div>
 );
 
-// --- Main Components ---
+// --- Chat Sidebar (floating, independent of main sidebar) ---
 const ChatSidebar = ({ isOpen, toggleSidebar }) => (
   <aside
-    className={`bg-white w-80 min-h-screen p-4 flex flex-col justify-between border-r border-gray-100 transform transition-transform duration-300
-    ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+    className={`fixed top-0 right-0 h-full w-80 bg-white border-l border-gray-100 shadow-lg transform transition-transform duration-300 z-50
+    ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
   >
-    {/* Sidebar Header with Menu Icon */}
-    <div className="flex justify-between items-center mb-4">
+    <div className="flex justify-between items-center p-4 border-b">
       <p className="text-xs text-gray-400 font-semibold uppercase">Past Chats</p>
-      <button
-        onClick={toggleSidebar}
-        className="p-2 rounded-md hover:bg-gray-200 transition-colors"
-      >
-        <MenuIcon />
+      <button onClick={toggleSidebar} className="p-2 rounded-md hover:bg-gray-200 transition-colors">
+        ✕
       </button>
     </div>
 
-    <nav className="space-y-2">
+    <nav className="space-y-2 p-4">
       <a href="#" className="block px-4 py-3 rounded-lg bg-[#E6F3F0]">
         <h3 className="font-semibold text-gray-800">Exam Stress</h3>
         <p className="text-sm text-gray-500">Today, 10:12</p>
@@ -67,15 +63,12 @@ const ChatSidebar = ({ isOpen, toggleSidebar }) => (
   </aside>
 );
 
-
+// --- Chat Header ---
 const ChatHeader = ({ user, toggleSidebar }) => (
   <header className="flex items-center justify-between p-4 bg-[#F0FAFA] sticky top-0 z-10 border-b border-gray-200/80">
     <div className="flex items-center space-x-3">
-      {/* Menu Icon to open ChatSidebar */}
-      <button
-        onClick={toggleSidebar}
-        className="lg:hidden p-2 rounded-md hover:bg-gray-200 transition-colors"
-      >
+      {/* Button to open ChatSidebar */}
+      <button onClick={toggleSidebar} className="p-2 rounded-md hover:bg-gray-200 transition-colors">
         <MenuIcon />
       </button>
       <div>
@@ -98,6 +91,7 @@ const ChatHeader = ({ user, toggleSidebar }) => (
   </header>
 );
 
+// --- Chat Input ---
 const ChatInput = () => (
   <div className="p-4 bg-[#F0FAFA] border-t border-gray-200/80">
     <div className="relative">
@@ -125,20 +119,12 @@ export default function ChatPage({ user = currentUser }) {
 
   return (
     <div className="flex bg-[#F0FAFA] min-h-screen font-sans">
-      {/* Main Sidebar stays fixed */}
+      {/* Main Sidebar stays fixed on the left */}
       <Sidebar />
 
-      {/* Chat Sidebar with toggle */}
-      <ChatSidebar
-        isOpen={isChatSidebarOpen}
-        toggleSidebar={() => setChatSidebarOpen(!isChatSidebarOpen)}
-      />
-
+      {/* Chat Area */}
       <main className="flex-1 flex flex-col">
-        <ChatHeader
-          user={user}
-          toggleSidebar={() => setChatSidebarOpen(!isChatSidebarOpen)}
-        />
+        <ChatHeader user={user} toggleSidebar={() => setChatSidebarOpen(!isChatSidebarOpen)} />
 
         {/* Empty Chat State */}
         <div className="flex-1 flex flex-col items-center justify-center p-6">
@@ -156,6 +142,9 @@ export default function ChatPage({ user = currentUser }) {
 
         <ChatInput />
       </main>
+
+      {/* Independent floating Chat Sidebar */}
+      <ChatSidebar isOpen={isChatSidebarOpen} toggleSidebar={() => setChatSidebarOpen(!isChatSidebarOpen)} />
     </div>
   );
 }
