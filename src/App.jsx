@@ -7,6 +7,7 @@ import ChatPage from './pages/ChatPage';
 import ResourceDetailPage from './pages/ResourcesPage';
 import ForumPage from './pages/ForumPage';
 import BookingPage from './pages/BookingPage';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
@@ -14,7 +15,14 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path='/chatbot' element={<ChatPage />} />
         <Route path='/resources' element={<ResourceDetailPage />} />
         <Route path='/forum' element={<ForumPage />} />

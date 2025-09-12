@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { auth } from "../firebase";
 
 // A simple SVG icon for the Google logo
 const GoogleIcon = () => (
@@ -26,6 +28,31 @@ const AbstractBackground = () => (
 
 
 export default function LoginPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  // Email/Password login
+  const handleEmailLogin = async (e) => {
+    e.preventDefault();
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      window.location.href = '/dashboard';
+    } catch (error) {
+      alert("❌ " + error.message);
+    }
+  };
+
+  // Google login
+  const handleGoogleLogin = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      window.location.href = '/dashboard';
+    } catch (error) {
+      alert("❌ " + error.message);
+    }
+  };
+
   return (
     <div className="bg-[#F0FAFA] min-h-screen font-sans text-gray-800">
       {/* Header */}
@@ -57,7 +84,7 @@ export default function LoginPage() {
               <h2 className="text-2xl font-bold mb-1">Welcome back</h2>
               <p className="text-gray-500 mb-8">Log in to continue your wellbeing journey</p>
 
-              <form>
+              <form onSubmit={handleEmailLogin}>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">
                     Email
@@ -66,7 +93,10 @@ export default function LoginPage() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 transition-colors"
                     type="email"
                     id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     placeholder="name@school.edu"
+                    required
                   />
                 </div>
                 <div className="mb-4">
@@ -77,7 +107,10 @@ export default function LoginPage() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 transition-colors"
                     type="password"
                     id="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
+                    required
                   />
                 </div>
 
@@ -93,7 +126,7 @@ export default function LoginPage() {
                   Log in
                 </button>
 
-                <button type="button" className="w-full mt-4 flex items-center justify-center bg-white border border-gray-300 font-bold py-3 px-4 rounded-full hover:bg-gray-50 transition-colors">
+                <button onClick={handleGoogleLogin} type="button" className="w-full mt-4 flex items-center justify-center bg-white border border-gray-300 font-bold py-3 px-4 rounded-full hover:bg-gray-50 transition-colors">
                   <GoogleIcon /> Continue with Google
                 </button>
               </form>
@@ -108,3 +141,4 @@ export default function LoginPage() {
     </div>
   );
 }
+
