@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
 } from "firebase/auth";
-import { auth } from "../firebase";
+import { auth } from "../firebase"; // Corrected the import path
 
 // A simple SVG icon for the Google logo
 const GoogleIcon = () => (
@@ -57,34 +57,58 @@ const AbstractBackground = () => (
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false); // <-- New loading state
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+
+  // Unified function to handle role-based navigation after login
+  const handleSuccessfulLogin = async (user) => {
+    try {
+      // Force a token refresh to get the latest custom claims.
+      const tokenResult = await user.getIdTokenResult(true);
+
+      // Check if the 'admin' claim is true.
+      if (tokenResult.claims.admin === true) {
+        navigate("/admin"); // Navigate admins to the admin dashboard
+      } else {
+        navigate("/dashboard"); // Navigate regular users to the user dashboard
+      }
+    } catch (err) {
+      console.error("Error checking admin claims, redirecting to default dashboard:", err);
+      // Fallback to the regular dashboard if claim check fails
+      navigate("/dashboard");
+    }
+  };
 
   // Email/Password login
   const handleEmailLogin = async (e) => {
     e.preventDefault();
-    setIsLoading(true); // <-- Start loading
+    setIsLoading(true);
+    setError("");
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigate("/dashboard");
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      await handleSuccessfulLogin(userCredential.user);
     } catch (error) {
-      alert("❌ " + error.message);
+      setError("Failed to log in. Please check your credentials.");
+      console.error("Email login error:", error);
     } finally {
-      setIsLoading(false); // <-- Stop loading
+      setIsLoading(false);
     }
   };
 
   // Google login
   const handleGoogleLogin = async () => {
-    setIsLoading(true); // <-- Start loading
+    setIsLoading(true);
+    setError("");
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      navigate("/dashboard");
+      const result = await signInWithPopup(auth, provider);
+      await handleSuccessfulLogin(result.user);
     } catch (error) {
-      alert("❌ " + error.message);
+      setError("Could not sign in with Google. Please try again.");
+      console.error("Google login error:", error);
     } finally {
-      setIsLoading(false); // <-- Stop loading
+      setIsLoading(false);
     }
   };
 
@@ -93,12 +117,12 @@ export default function LoginPage() {
       <header className="absolute top-0 left-0 right-0 p-6 z-10">
         <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-xl font-bold">StudentCare</h1>
-          <a
-            href="#"
+          <Link
+            to="/signup" // Changed from '#' to a more useful link
             className="border border-gray-300 rounded-full px-4 py-1.5 text-sm font-semibold hover:bg-gray-100 transition-colors"
           >
-            Need help?
-          </a>
+            Create an Account
+          </Link>
         </div>
       </header>
 
@@ -122,10 +146,7 @@ export default function LoginPage() {
               </p>
               <form onSubmit={handleEmailLogin}>
                 <div className="mb-4">
-                  <label
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                    htmlFor="email"
-                  >
+                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">
                     Email
                   </label>
                   <input
@@ -135,14 +156,11 @@ export default function LoginPage() {
                     placeholder="name@school.edu"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    disabled={isLoading} // <-- Disable when loading
+                    disabled={isLoading}
                   />
                 </div>
                 <div className="mb-4">
-                  <label
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                    htmlFor="password"
-                  >
+                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">
                     Password
                   </label>
                   <input
@@ -152,13 +170,14 @@ export default function LoginPage() {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading} // <-- Disable when loading
+                    disabled={isLoading}
                   />
                 </div>
+                {error && <p className="text-sm text-red-600 text-center mb-4">{error}</p>}
                 <button
                   type="submit"
                   className="w-full bg-[#1A936F] text-white font-bold py-3 px-4 rounded-full hover:bg-[#167d5e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isLoading} // <-- Disable when loading
+                  disabled={isLoading}
                 >
                   {isLoading ? "Logging in..." : "Log in"}
                 </button>
@@ -167,18 +186,15 @@ export default function LoginPage() {
                 type="button"
                 onClick={handleGoogleLogin}
                 className="w-full mt-4 flex items-center justify-center bg-white border border-gray-300 font-bold py-3 px-4 rounded-full hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isLoading} // <-- Disable when loading
+                disabled={isLoading}
               >
                 <GoogleIcon /> Continue with Google
               </button>
               <div className="text-center text-sm text-gray-500 mt-8">
                 New here?{" "}
-                <a
-                  href="/signup"
-                  className="font-bold text-teal-600 hover:text-teal-700"
-                >
+                <Link to="/signup" className="font-bold text-teal-600 hover:text-teal-700">
                   Create an account
-                </a>
+                </Link>
               </div>
             </div>
           </div>

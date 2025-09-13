@@ -2,9 +2,9 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
+import { getFirestore } from "firebase/firestore"; // Add this import
 
 // Your Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyAdYbvGbLcWaLRXn26bQ-CRnHXEIqBfAXo",
   authDomain: "mindease-final-sih.firebaseapp.com",
@@ -21,6 +21,9 @@ const analytics = getAnalytics(app);
 
 // Get the Auth service and export it
 export const auth = getAuth(app);
+
+// Initialize Firestore and export it
+export const db = getFirestore(app); // Add this line
 
 // Export app so you can use Firebase in other files
 export default app;
