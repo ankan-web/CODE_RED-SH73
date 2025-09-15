@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Sidebar from '../components/Sidebar';
+import { auth, db } from '../firebase';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
 // --- Mock Data ---
 const currentUser = {
@@ -8,10 +10,10 @@ const currentUser = {
 };
 
 const counselors = [
-  { id: 1, name: 'Dr. Maya Patel', specialization: 'Anxiety, Stress, Mgmt', days: 'Mon • Wed', time: '9:00–14:00', mode: 'On-campus', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1888&auto-format=fit=crop' },
-  { id: 2, name: 'Alex Chen, LCSW', specialization: 'Depression, Relationships', days: 'Tue • Thu', time: '12:00–18:00', mode: 'Virtual', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1964&auto-format=fit=crop' },
-  { id: 3, name: 'Sofia Ramirez, PsyD', specialization: 'Academic Burnout', days: 'Mon • Fri', time: '10:00–16:00', mode: 'Hybrid', avatar: 'https://images.unsplash.com/photo-1554151228-14d9def656e4?q=80&w=1886&auto-format=fit=crop' },
-  { id: 4, name: 'Jordan Lee, MFT', specialization: 'Grief, Adjustment', days: 'Wed • Fri', time: '9:00–13:00', mode: 'On-campus', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=1887&auto-format=fit=crop' },
+  { id: 1, name: 'Dr. Aanya Sharma', specialization: 'Anxiety, Stress Mgmt', days: 'Mon • Wed', time: '10:00–17:00', mode: 'Virtual', avatar: 'https://images.unsplash.com/photo-1554151228-14d9def656e4?q=80&w=1886&auto=format=fit' },
+  { id: 2, name: 'Dr. Ravi Iyer', specialization: 'Depression, Relationships', days: 'Tue • Thu', time: '10:00–17:00', mode: 'Hybrid', avatar: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=1887&auto=format=fit' },
+  { id: 3, name: 'Dr. Priya Menon', specialization: 'Academic Burnout', days: 'Mon • Fri', time: '10:00–17:00', mode: 'On-campus', avatar: 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?q=80&w=1887&auto=format=fit' },
+  { id: 4, name: 'Dr. Arjun Verma', specialization: 'Grief, Adjustment', days: 'Wed • Fri', time: '10:00–17:00', mode: 'Virtual', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=1887&auto=format=fit' },
 ];
 
 // Mock availability - keyed by date YYYY-MM-DD
@@ -35,7 +37,7 @@ const Header = ({ user }) => (
   </header>
 );
 
-const ConfirmationModal = ({ booking, onDone, onReschedule }) => {
+const ConfirmationModal = ({ booking, onPay, onReschedule }) => {
   if (!booking) return null;
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
@@ -47,13 +49,12 @@ const ConfirmationModal = ({ booking, onDone, onReschedule }) => {
           <p><strong className="font-semibold">Time:</strong> {booking.time}</p>
           <p><strong className="font-semibold">Mode:</strong> {booking.counselor.mode}</p>
         </div>
-        <label className="flex items-center space-x-2 text-sm text-gray-600 mt-4">
-          <input type="checkbox" className="rounded text-teal-600 focus:ring-teal-500" />
-          <span>Add to calendar</span>
-        </label>
+        <div className="mt-4 p-3 rounded-lg bg-teal-50 text-teal-800 text-sm">
+          Booking fee: <strong>₹1000 INR</strong>
+        </div>
         <div className="flex justify-end space-x-2 mt-6">
           <button onClick={onReschedule} className="bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors">Reschedule</button>
-          <button onClick={onDone} className="bg-[#2D9A83] text-white font-semibold py-2 px-4 rounded-lg hover:bg-teal-700 transition-colors">Done</button>
+          <button onClick={onPay} className="bg-[#2D9A83] text-white font-semibold py-2 px-4 rounded-lg hover:bg-teal-700 transition-colors">Pay & Book</button>
         </div>
       </div>
     </div>
@@ -65,6 +66,7 @@ export default function BookingPage() {
   const [selectedCounselorId, setSelectedCounselorId] = useState(1);
   const [currentDate, setCurrentDate] = useState(new Date('2025-09-01'));
   const [selectedSlot, setSelectedSlot] = useState(null); // { date: Date, time: string }
+  const [bookedMap, setBookedMap] = useState({}); // { 'YYYY-MM-DD|time': true }
 
   const changeMonth = (offset) => {
     setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
@@ -76,9 +78,60 @@ export default function BookingPage() {
     setSelectedSlot({ date: selectedDate, time });
   };
 
-  const handleBookingDone = () => {
-    alert('Booking confirmed!'); // Placeholder for actual confirmation logic
-    setSelectedSlot(null);
+  const loadRazorpay = () => new Promise((resolve) => {
+    if (window.Razorpay) return resolve(true);
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+
+  const handlePayAndBook = async () => {
+    const user = auth.currentUser;
+    if (!user) { alert('Please sign in to book.'); return; }
+    if (!selectedSlot) return;
+
+    const ok = await loadRazorpay();
+    if (!ok) { alert('Payment SDK failed to load.'); return; }
+
+    const key = import.meta?.env?.VITE_RAZORPAY_KEY_ID || window.RAZORPAY_KEY_ID || '';
+    if (!key) {
+      alert('Razorpay key not configured. Set VITE_RAZORPAY_KEY_ID (demo mode).');
+    }
+
+    const amountPaise = 1000 * 100;
+    const options = {
+      key,
+      amount: amountPaise,
+      currency: 'INR',
+      name: 'MindEase',
+      description: 'Counseling Session Booking',
+      handler: async function (response) {
+        const booking = {
+          userId: user.uid,
+          userEmail: user.email || null,
+          counselorId: selectedCounselor.id,
+          counselorName: selectedCounselor.name,
+          dateISO: selectedSlot.date.toISOString().slice(0, 10),
+          time: selectedSlot.time,
+          amount: 1000,
+          currency: 'INR',
+          status: 'confirmed',
+          paymentId: response?.razorpay_payment_id || null,
+          createdAt: serverTimestamp(),
+        };
+        await addDoc(collection(db, 'bookings'), booking);
+        const keySlot = `${booking.dateISO}|${booking.time}`;
+        setBookedMap(prev => ({ ...prev, [keySlot]: true }));
+        setSelectedSlot(null);
+        alert('Payment successful. Your appointment is confirmed.');
+      },
+      prefill: { name: user.displayName || user.email || 'User', email: user.email || undefined },
+      theme: { color: '#2D9A83' },
+    };
+    const rzp = new window.Razorpay(options);
+    rzp.open();
   };
 
   const getCalendarGrid = () => {
@@ -104,6 +157,20 @@ export default function BookingPage() {
   };
 
   const calendarGrid = getCalendarGrid();
+  const monthSlots = useMemo(() => {
+    // default: two time slots daily 10:00 and 16:00 on weekdays
+    const slotsByDate = {};
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const day = new Date(year, month, d).getDay();
+      if (day === 0 || day === 6) continue; // skip weekends
+      const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      slotsByDate[key] = ['10:00', '16:00'];
+    }
+    return slotsByDate;
+  }, [currentDate]);
   const selectedCounselor = counselors.find(c => c.id === selectedCounselorId);
 
   return (
@@ -140,7 +207,7 @@ export default function BookingPage() {
               {dayNames.map(day => <div key={day} className="font-semibold text-gray-500 py-2">{day}</div>)}
               {calendarGrid.flat().map((day, index) => {
                 const dateKey = day ? `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : null;
-                const slots = dateKey ? availability[dateKey] : null;
+                const slots = dateKey ? monthSlots[dateKey] : null;
                 return (
                   <div key={index} className="py-1 min-h-[80px]">
                     {day && <p className="mb-1">{day}</p>}
@@ -148,7 +215,7 @@ export default function BookingPage() {
                       <div className="space-y-1">
                         {slots.map(time => (
                           <button key={time} onClick={() => handleSlotSelect(day, time)}
-                            className={`w-full text-xs font-semibold py-1 rounded ${selectedSlot?.date.getDate() === day && selectedSlot?.time === time ? 'bg-[#2D9A83] text-white' : 'bg-[#E6F3F0] text-gray-700 hover:bg-[#cce2dc]'}`}>
+                            className={`w-full text-xs font-semibold py-1 rounded ${bookedMap[`${dateKey}|${time}`] ? 'bg-green-500 text-white' : (selectedSlot?.date.getDate() === day && selectedSlot?.time === time ? 'bg-[#2D9A83] text-white' : 'bg-[#E6F3F0] text-gray-700 hover:bg-[#cce2dc]')}`}>
                             {time}
                           </button>
                         ))}
@@ -164,7 +231,7 @@ export default function BookingPage() {
       </main>
       <ConfirmationModal
         booking={selectedSlot ? { ...selectedSlot, counselor: selectedCounselor } : null}
-        onDone={handleBookingDone}
+        onPay={handlePayAndBook}
         onReschedule={() => setSelectedSlot(null)}
       />
     </div>

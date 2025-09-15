@@ -26,3 +26,17 @@ export const PageHeader = ({ title }) => (
   </header>
 );
 
+// Lightweight Chart wrapper
+import { useEffect, useRef } from 'react';
+import Chart from 'chart.js/auto';
+
+export const ChartComponent = ({ type, data, options }) => {
+  const chartRef = useRef(null);
+  useEffect(() => {
+    if (!chartRef.current) return;
+    const instance = new Chart(chartRef.current, { type, data, options });
+    return () => instance.destroy();
+  }, [type, data, options]);
+  return <canvas ref={chartRef}></canvas>;
+};
+

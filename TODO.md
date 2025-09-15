@@ -1,11 +1,48 @@
-# TODO: Debug AdminLayout.jsx
+# Admin Section Rewrite Plan
 
-- [ ] Fix aiService methods: enclose template literals in backticks for chat, generateSummary, translate
-- [ ] Fix Card component className attribute
-- [ ] Fix UsersPage: table row className and status span className
-- [ ] Fix ResourcesPage: loadingStates keys, Fragment key, and other JSX syntax
-- [ ] Fix ForumPage: table row className and status span className
-- [ ] Fix BookingsPage: calendar button className and other JSX attributes
-- [ ] Fix ChatbotWidget: messages map className and other JSX syntax
-- [ ] Fix Sidebar: Link className attribute
-- [ ] Verify all JSX syntax is correct and no errors remain
+## Information Gathered
+- AdminDashboard.jsx contains all admin components inline, with duplicates (e.g., Icon, Card defined twice).
+- Firebase Firestore is set up, with 'users' collection already used in UsersPage.
+- Resources are currently mock data in state.
+- Analytics are hardcoded values and placeholder chart data.
+- No real-time calculations for analytics; need to fetch user data and compute metrics like total users, active users, user growth over time.
+- Resources need to be stored in Firestore for dynamic CRUD operations.
+
+## Plan
+1. **Refactor AdminDashboard.jsx**:
+   - Remove duplicate definitions (e.g., Icon, Card, PageHeader, etc.).
+   - Clean up imports and structure.
+
+2. **Update AnalyticsPage**:
+   - Fetch all users from Firestore.
+   - Calculate total users: length of users array.
+   - Calculate active users: users with lastLogin within last 30 days (assume lastLogin field exists).
+   - Calculate user growth: group users by month of createdAt, create chart data.
+   - Fetch bookings if collection exists, calculate sessions booked.
+   - Use real data for percentages (e.g., growth rates based on previous periods).
+
+3. **Update ResourcesPage**:
+   - Fetch resources from 'resources' collection on load.
+   - Implement add, edit, delete using Firestore operations (addDoc, updateDoc, deleteDoc).
+   - Update state after operations.
+
+4. **Add necessary Firebase imports**:
+   - addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, Timestamp.
+
+5. **Enhance UsersPage**:
+   - Already fetches users; ensure it handles loading and errors properly.
+
+6. **Testing and Validation**:
+   - Ensure Firestore rules allow admin read/write.
+   - Test CRUD for resources.
+   - Verify analytics calculations.
+
+## Dependent Files
+- src/admin/AdminDashboard.jsx (main file to edit)
+- src/firebase.js (already set up)
+- Firestore collections: users, resources, bookings (if exists)
+
+## Followup Steps
+- After edits, run the app and check admin dashboard.
+- Add sample data to Firestore if needed.
+- Update Firestore rules if necessary for admin access.

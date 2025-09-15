@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"; // Import updateProfile
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
 import { useNavigate } from "react-router-dom";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import toast from "react-hot-toast";
 
 export default function SignupPage() {
@@ -27,12 +28,24 @@ export default function SignupPage() {
         password
       );
 
-      // --- This is the new part ---
+
       // After creating the user, update their profile with the name
       await updateProfile(userCredential.user, {
         displayName: name,
       });
-      // --------------------------
+
+      // --- Write user info to Firestore 'users' collection ---
+      await setDoc(doc(db, "users", userCredential.user.uid), {
+        uid: userCredential.user.uid,
+        email: userCredential.user.email,
+        displayName: name,
+        photoURL: userCredential.user.photoURL || null,
+        createdAt: serverTimestamp(),
+        lastLogin: serverTimestamp(),
+        status: "active",
+        emailVerified: userCredential.user.emailVerified,
+        provider: userCredential.user.providerData[0]?.providerId || "email"
+      });
 
       toast.success("Account created successfully!", { id: toastId });
       navigate("/dashboard");
