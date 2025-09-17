@@ -137,4 +137,3 @@ export default function EmotionDetector({ onClose }) {
     </div>
   );
 }
-

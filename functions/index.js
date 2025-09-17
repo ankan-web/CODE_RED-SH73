@@ -27,3 +27,7 @@ setGlobalOptions({ maxInstances: 10 });
 // https://firebase.google.com/docs/functions/get-started
 
 // ...existing code...
+
+// Export listAllUsers function
+const { listAllUsers } = require("./listAllUsers");
+exports.listAllUsers = listAllUsers.listAllUsers || listAllUsers;

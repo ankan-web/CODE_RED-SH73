@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"; // Import updateProfile
-import { auth, db } from "../firebase";
-import { useNavigate } from "react-router-dom";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { auth, db } from "../firebase"; // Assuming firebase.js exports auth and db
 
 export default function SignupPage() {
-  const [name, setName] = useState(""); // <-- Add state for name
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -14,43 +14,57 @@ export default function SignupPage() {
 
   const handleSignup = async (e) => {
     e.preventDefault();
+
+    // Basic validation for the name field
     if (!name.trim()) {
       toast.error("Please enter your name.");
       return;
     }
+
     setIsLoading(true);
     const toastId = toast.loading("Creating your account...");
 
     try {
+      // Step 1: Create the user in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
         password
       );
+      const user = userCredential.user;
 
-
-      // After creating the user, update their profile with the name
-      await updateProfile(userCredential.user, {
+      // Step 2: Update the user's profile in Firebase Authentication
+      // This adds the 'displayName' to the user object, which is good practice.
+      await updateProfile(user, {
         displayName: name,
       });
 
-      // --- Write user info to Firestore 'users' collection ---
-      await setDoc(doc(db, "users", userCredential.user.uid), {
-        uid: userCredential.user.uid,
-        email: userCredential.user.email,
+      // Step 3: Create the user's document in the 'users' collection in Firestore
+      // This is the crucial step for your Admin Panel to see the user.
+      const userDocRef = doc(db, "users", user.uid);
+      await setDoc(userDocRef, {
+        uid: user.uid,
         displayName: name,
-        photoURL: userCredential.user.photoURL || null,
+        email: user.email,
+        photoURL: user.photoURL, // This will be null initially
         createdAt: serverTimestamp(),
         lastLogin: serverTimestamp(),
-        status: "active",
-        emailVerified: userCredential.user.emailVerified,
-        provider: userCredential.user.providerData[0]?.providerId || "email"
-      });
+        status: "active", // Default status for new users
+      }, { merge: true }); // Using { merge: true } is a best practice
 
       toast.success("Account created successfully!", { id: toastId });
-      navigate("/dashboard");
+      navigate("/dashboard"); // Redirect user after successful signup
+
     } catch (error) {
-      toast.error(error.message, { id: toastId });
+      // Provide a more user-friendly error message
+      let errorMessage = "Failed to create account. Please try again.";
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "This email is already in use.";
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = "Password should be at least 6 characters.";
+      }
+      console.error("Signup Error:", error);
+      toast.error(errorMessage, { id: toastId });
     } finally {
       setIsLoading(false);
     }
@@ -66,7 +80,7 @@ export default function SignupPage() {
           </p>
 
           <form onSubmit={handleSignup}>
-            {/* --- New Input Field for Name --- */}
+            {/* Full Name Input */}
             <div className="mb-4">
               <label
                 className="block text-sm font-medium text-gray-700 mb-1"
@@ -82,10 +96,11 @@ export default function SignupPage() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="John Doe"
                 disabled={isLoading}
+                required
               />
             </div>
-            {/* ----------------------------- */}
 
+            {/* Email Input */}
             <div className="mb-4">
               <label
                 className="block text-sm font-medium text-gray-700 mb-1"
@@ -99,10 +114,13 @@ export default function SignupPage() {
                 id="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@school.edu"
+                placeholder="name@example.com"
                 disabled={isLoading}
+                required
               />
             </div>
+
+            {/* Password Input */}
             <div className="mb-6">
               <label
                 className="block text-sm font-medium text-gray-700 mb-1"
@@ -118,6 +136,7 @@ export default function SignupPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 disabled={isLoading}
+                required
               />
             </div>
 
@@ -141,4 +160,3 @@ export default function SignupPage() {
     </div>
   );
 }
-

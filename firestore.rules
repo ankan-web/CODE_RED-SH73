@@ -1,32 +1,35 @@
 rules_version = '2';
 
 service cloud.firestore {
-  match /databases/{database}/documents {
-    
-    // Users collection - allow admins to read all users, regular users can only read their own
-    match /users/{userId} {
-      // Allow admins to read all user documents
-      allow read: if request.auth != null && request.auth.token.admin == true;
-      // Allow users to read their own document
-      allow read: if request.auth != null && request.auth.uid == userId;
-      // Allow users to write their own document
-      allow write: if request.auth != null && request.auth.uid == userId;
-    }
+match /databases/{database}/documents {
 
-    // Allow admins to query the entire users collection
-    match /users/{document=**} {
-      allow read: if request.auth != null && request.auth.token.admin == true;
-    }
+// This function checks if the request is coming from your specific admin UID.
+function isAdmin() {
+  // IMPORTANT: This UID must match the admin user account you are logged in with in the app.
+  return request.auth.uid == 'TjqRNq5MpHdahtlpygegZfhAS1S2';
+}
 
-    // Resources collection
-    match /resources/{docId} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.token.admin == true;
-    }
+// Rule for the 'users' collection
+match /users/{userId} {
+  // Admins can read the entire collection.
+  // Individual users can read and write their OWN document.
+  allow read: if isAdmin() || request.auth.uid == userId;
+  allow write: if request.auth.uid == userId;
+}
 
-    // Deny everything else
-    match /{document=**} {
-      allow read, write: if false;
-    }
-  }
+// Rule for the 'bookings' collection
+match /bookings/{bookingId} {
+  // Only the admin can read or write to the bookings collection.
+  allow read, write: if isAdmin();
+}
+
+// Rule for the 'resources' collection
+match /resources/{docId} {
+  // Anyone can read resources.
+  // Only admins can create, update, or delete them.
+  allow read: if true;
+  allow write: if isAdmin();
+}
+
+}
 }

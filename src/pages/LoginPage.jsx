@@ -5,7 +5,9 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
 } from "firebase/auth";
-import { auth } from "../firebase"; // Corrected the import path
+// Import firestore functions and the db instance
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "../firebase"; // Make sure db is exported from your firebase config
 
 // A simple SVG icon for the Google logo
 const GoogleIcon = () => (
@@ -61,21 +63,50 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
+  // --- NEW FUNCTION TO SYNC USER WITH FIRESTORE ---
+  // This function checks if a user has a document in the 'users' collection
+  // and creates one if they don't.
+  const syncUserWithFirestore = async (user) => {
+    if (!user) return;
+
+    const userDocRef = doc(db, "users", user.uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (!userDoc.exists()) {
+      // If the document doesn't exist, create it for the existing user.
+      await setDoc(userDocRef, {
+        uid: user.uid,
+        displayName: user.displayName || user.email.split('@')[0],
+        email: user.email,
+        photoURL: user.photoURL,
+        createdAt: user.metadata.creationTime ? new Date(user.metadata.creationTime) : serverTimestamp(),
+        lastLogin: serverTimestamp(),
+        status: "active",
+      }, { merge: true });
+      console.log("Created Firestore document for existing user:", user.uid);
+    } else {
+      // If the document already exists, just update their last login time.
+      await setDoc(userDocRef, { lastLogin: serverTimestamp() }, { merge: true });
+    }
+  };
+
   // Unified function to handle role-based navigation after login
   const handleSuccessfulLogin = async (user) => {
     try {
-      // Force a token refresh to get the latest custom claims.
+      // --- THIS IS THE NEW LOGIC ---
+      // Sync user data with Firestore before navigating.
+      await syncUserWithFirestore(user);
+
       const tokenResult = await user.getIdTokenResult(true);
 
-      // Check if the 'admin' claim is true.
       if (tokenResult.claims.admin === true) {
-        navigate("/admin"); // Navigate admins to the admin dashboard
+        navigate("/admin");
       } else {
-        navigate("/dashboard"); // Navigate regular users to the user dashboard
+        navigate("/dashboard");
       }
     } catch (err) {
-      console.error("Error checking admin claims, redirecting to default dashboard:", err);
-      // Fallback to the regular dashboard if claim check fails
+      console.error("Error during login process:", err);
+      // Fallback to the regular dashboard if claim check or sync fails
       navigate("/dashboard");
     }
   };
@@ -118,7 +149,7 @@ export default function LoginPage() {
         <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-xl font-bold">StudentCare</h1>
           <Link
-            to="/signup" // Changed from '#' to a more useful link
+            to="/signup"
             className="border border-gray-300 rounded-full px-4 py-1.5 text-sm font-semibold hover:bg-gray-100 transition-colors"
           >
             Create an Account
@@ -203,4 +234,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

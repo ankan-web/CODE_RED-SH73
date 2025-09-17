@@ -18,6 +18,8 @@
     "face-api.js": "^0.20.0",
     "firebase": "^12.2.1",
     "firebase-admin": "^13.5.0",
+    "framer-motion": "^12.23.13",
+    "lucide-react": "^0.544.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-hot-toast": "^2.6.0",

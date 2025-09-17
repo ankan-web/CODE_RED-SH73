@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
-import { summarizeResource } from '../services/AIService';
+// import { summarizeResource } from '../services/AIService';
 
 // --- Mock User Data ---
 const currentUser = {
@@ -71,16 +71,7 @@ const ResourceModal = ({ resource, onClose }) => {
   const [summary, setSummary] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSummarize = async () => {
-    if (!resource) return;
-    setLoading(true);
-    try {
-      const text = await summarizeResource(resource.title || 'Resource', resource.links || []);
-      setSummary(text);
-    } finally {
-      setLoading(false);
-    }
-  };
+  
 
   if (!resource) return null;
 
