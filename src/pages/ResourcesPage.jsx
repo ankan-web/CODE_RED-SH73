@@ -132,7 +132,7 @@ const ResourceModal = ({ resource, onClose }) => {
               )}
             </div>
             <button
-              onClick={handleSummarize}
+              
               disabled={loading}
               className="mt-3 bg-teal-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-teal-600 transition-colors disabled:opacity-50"
             >

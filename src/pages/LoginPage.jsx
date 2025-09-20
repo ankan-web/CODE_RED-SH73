@@ -5,54 +5,45 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
 } from "firebase/auth";
-// Import firestore functions and the db instance
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "../firebase"; // Make sure db is exported from your firebase config
+import { auth, db } from "../firebase";
 
-// A simple SVG icon for the Google logo
+// Enhanced Google Icon with better styling
 const GoogleIcon = () => (
-  <svg className="w-5 h-5 mr-2" viewBox="0 0 48 48">
+  <svg className="w-5 h-5" viewBox="0 0 48 48">
     <path
-      fill="#FFC107"
-      d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039L38.804 8.841C34.522 4.982 29.537 2.5 24 2.5C11.318 2.5 2.5 11.318 2.5 24s8.818 21.5 21.5 21.5c11.983 0 21.06-8.807 21.06-20.556c0-1.34-.123-2.624-.349-3.86z"
+      fill="#EA4335"
+      d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+    ></path>
+    <path
+      fill="#4285F4"
+      d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+    ></path>
+    <path
+      fill="#FBBC05"
+      d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+    ></path>
+    <path
+      fill="#34A853"
+      d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
     ></path>
   </svg>
 );
 
-// A placeholder for the abstract background image on the left
+// Abstract background component with improved design
 const AbstractBackground = () => (
-  <div className="absolute inset-0 w-full h-full bg-[#D4E9E2] rounded-2xl overflow-hidden">
-    <svg
-      width="100%"
-      height="100%"
-      viewBox="0 0 400 400"
-      preserveAspectRatio="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <defs>
-        <filter id="soft-blur">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="5" />
-        </filter>
-      </defs>
-      <path
-        d="M-50 150 Q100 50, 200 180 T450 150"
-        stroke="#66B29A"
-        strokeWidth="30"
-        fill="none"
-        strokeLinecap="round"
-        style={{ filter: "url(#soft-blur)", opacity: 0.3 }}
-      />
-      <path
-        d="M-50 250 Q150 350, 250 220 T450 250"
-        stroke="#8FBC8F"
-        strokeWidth="40"
-        fill="none"
-        strokeLinecap="round"
-        style={{ filter: "url(#soft-blur)", opacity: 0.4 }}
-      />
-      <circle cx="320" cy="80" r="12" fill="white" style={{ opacity: 0.2 }} />
-      <circle cx="340" cy="95" r="8" fill="white" style={{ opacity: 0.15 }} />
-    </svg>
+  <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-[#D4E9E2] to-[#E8F4F0] rounded-2xl overflow-hidden">
+    <div className="absolute top-0 right-0 w-40 h-40 bg-[#8FBC8F] opacity-20 rounded-full -translate-y-20 translate-x-20"></div>
+    <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#66B29A] opacity-30 rounded-full -translate-x-16 translate-y-16"></div>
+    <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-white opacity-10 rounded-full"></div>
+    <div className="absolute bottom-1/3 right-1/4 w-16 h-16 bg-[#1A936F] opacity-20 rounded-full"></div>
+  </div>
+);
+
+// Loading spinner component
+const LoadingSpinner = () => (
+  <div className="flex justify-center items-center">
+    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
   </div>
 );
 
@@ -63,9 +54,6 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  // --- NEW FUNCTION TO SYNC USER WITH FIRESTORE ---
-  // This function checks if a user has a document in the 'users' collection
-  // and creates one if they don't.
   const syncUserWithFirestore = async (user) => {
     if (!user) return;
 
@@ -73,7 +61,6 @@ export default function LoginPage() {
     const userDoc = await getDoc(userDocRef);
 
     if (!userDoc.exists()) {
-      // If the document doesn't exist, create it for the existing user.
       await setDoc(userDocRef, {
         uid: user.uid,
         displayName: user.displayName || user.email.split('@')[0],
@@ -85,18 +72,13 @@ export default function LoginPage() {
       }, { merge: true });
       console.log("Created Firestore document for existing user:", user.uid);
     } else {
-      // If the document already exists, just update their last login time.
       await setDoc(userDocRef, { lastLogin: serverTimestamp() }, { merge: true });
     }
   };
 
-  // Unified function to handle role-based navigation after login
   const handleSuccessfulLogin = async (user) => {
     try {
-      // --- THIS IS THE NEW LOGIC ---
-      // Sync user data with Firestore before navigating.
       await syncUserWithFirestore(user);
-
       const tokenResult = await user.getIdTokenResult(true);
 
       if (tokenResult.claims.admin === true) {
@@ -106,12 +88,10 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error("Error during login process:", err);
-      // Fallback to the regular dashboard if claim check or sync fails
       navigate("/dashboard");
     }
   };
 
-  // Email/Password login
   const handleEmailLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -127,7 +107,6 @@ export default function LoginPage() {
     }
   };
 
-  // Google login
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     setError("");
@@ -144,89 +123,133 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="bg-[#F0FAFA] min-h-screen font-sans text-gray-800">
-      <header className="absolute top-0 left-0 right-0 p-6 z-10">
+    <div className="bg-gradient-to-br from-[#F0FAFA] to-[#E0F5F5] min-h-screen font-sans text-gray-800">
+      <header className="fixed top-0 left-0 right-0 p-4 lg:p-6 z-10 bg-white/80 backdrop-blur-sm">
         <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-xl font-bold">StudentCare</h1>
+          <h1 className="text-xl font-bold text-[#1A936F]">StudentCare</h1>
           <Link
             to="/signup"
-            className="border border-gray-300 rounded-full px-4 py-1.5 text-sm font-semibold hover:bg-gray-100 transition-colors"
+            className="border border-gray-300 rounded-full px-4 py-1.5 text-sm font-semibold hover:bg-gray-50 transition-colors text-gray-700"
           >
             Create an Account
           </Link>
         </div>
       </header>
 
-      <main className="flex items-center justify-center min-h-screen p-4">
-        <div className="grid lg:grid-cols-2 gap-12 items-center w-full max-w-6xl">
-          <div className="hidden lg:flex flex-col items-center justify-center bg-white p-8 rounded-3xl shadow-sm aspect-square">
-            <div className="relative w-full h-full">
-              <AbstractBackground />
-              <div className="relative flex items-end h-full p-4">
+      <main className="flex items-center justify-center min-h-screen p-4 pt-20 lg:pt-0">
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center w-full max-w-6xl">
+          {/* Left side - Illustration/Graphics */}
+          <div className="hidden lg:flex flex-col items-center justify-center bg-white p-8 rounded-3xl shadow-lg aspect-square relative overflow-hidden">
+            <AbstractBackground />
+            <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-8">
+              <div className="mb-6">
+                <div className="w-16 h-16 bg-[#1A936F] rounded-full flex items-center justify-center text-white mb-4 mx-auto">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">Student Wellbeing Matters</h2>
                 <p className="text-gray-600">
-                  Gentle support for every student, anytime.
+                  Gentle support for every student, anytime, anywhere.
                 </p>
+              </div>
+              <div className="bg-white/80 backdrop-blur-sm p-4 rounded-xl shadow-sm mt-8">
+                <p className="text-sm text-gray-600 italic">"Taking care of your mental health is just as important as your academic success."</p>
               </div>
             </div>
           </div>
+
+          {/* Right side - Login Form */}
           <div className="w-full max-w-md mx-auto">
-            <div className="bg-white p-8 rounded-3xl shadow-sm">
-              <h2 className="text-2xl font-bold mb-1">Welcome back</h2>
-              <p className="text-gray-500 mb-8">
-                Log in to continue your wellbeing journey
-              </p>
-              <form onSubmit={handleEmailLogin}>
-                <div className="mb-4">
+            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-lg">
+              <div className="text-center mb-6">
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">Welcome back</h2>
+                <p className="text-gray-500 text-sm sm:text-base">
+                  Log in to continue your wellbeing journey
+                </p>
+              </div>
+
+              <form onSubmit={handleEmailLogin} className="space-y-4">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">
                     Email
                   </label>
                   <input
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 transition-colors disabled:bg-gray-100"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors disabled:bg-gray-100"
                     type="email"
                     id="email"
                     placeholder="name@school.edu"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={isLoading}
+                    required
                   />
                 </div>
-                <div className="mb-4">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">
                     Password
                   </label>
                   <input
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 transition-colors disabled:bg-gray-100"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors disabled:bg-gray-100"
                     type="password"
                     id="password"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={isLoading}
+                    required
                   />
                 </div>
-                {error && <p className="text-sm text-red-600 text-center mb-4">{error}</p>}
+
+                <div className="flex justify-end text-sm">
+                  <Link to="/forgot-password" className="text-[#1A936F] hover:text-[#167d5e] font-medium">
+                    Forgot password?
+                  </Link>
+                </div>
+
+                {error && (
+                  <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
+                    {error}
+                  </div>
+                )}
+
                 <button
                   type="submit"
-                  className="w-full bg-[#1A936F] text-white font-bold py-3 px-4 rounded-full hover:bg-[#167d5e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-[#1A936F] text-white font-semibold py-3 px-4 rounded-xl hover:bg-[#167d5e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                   disabled={isLoading}
                 >
-                  {isLoading ? "Logging in..." : "Log in"}
+                  {isLoading ? <LoadingSpinner /> : "Log in"}
                 </button>
               </form>
+
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={handleGoogleLogin}
-                className="w-full mt-4 flex items-center justify-center bg-white border border-gray-300 font-bold py-3 px-4 rounded-full hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 bg-white border border-gray-300 font-medium py-3 px-4 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoading}
               >
                 <GoogleIcon /> Continue with Google
               </button>
-              <div className="text-center text-sm text-gray-500 mt-8">
+
+              <div className="text-center text-sm text-gray-500 mt-6 pt-4 border-t border-gray-200">
                 New here?{" "}
-                <Link to="/signup" className="font-bold text-teal-600 hover:text-teal-700">
+                <Link to="/signup" className="font-semibold text-[#1A936F] hover:text-[#167d5e]">
                   Create an account
                 </Link>
               </div>
+            </div>
+
+            <div className="mt-6 text-center text-xs text-gray-500">
+              By continuing, you agree to our <Link to="/terms" className="underline">Terms of Service</Link> and <Link to="/privacy" className="underline">Privacy Policy</Link>.
             </div>
           </div>
         </div>

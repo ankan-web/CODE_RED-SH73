@@ -1,12 +1,14 @@
-import React, { Fragment, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Card, PageHeader } from "../components/Shared";
 import { collection, addDoc, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash, FileText, Video, BookOpen, ExternalLink, Settings, Edit, Link as LinkIcon } from "lucide-react";
+import { summarizeResource } from "../../services/aiService"; // Adjust path if needed
 
-// --- Resource Modal (no changes needed) ---
+// --- Resource Modal (no changes) ---
 function ResourceModal({ initial, onClose, onSave }) {
+  // ... (This component remains the same as your original code)
   const [title, setTitle] = useState(initial?.title || "");
   const [links, setLinks] = useState(initial?.links || [{ title: "", url: "", type: "Article" }]);
 
@@ -116,8 +118,9 @@ function ResourceModal({ initial, onClose, onSave }) {
   );
 }
 
-// --- Stat Card (same as before) ---
+// --- Stat Card (no changes) ---
 const StatCard = ({ icon: Icon, title, value, delay }) => (
+  // ... (This component remains the same as your original code)
   <motion.div
     initial={{ opacity: 0, y: 30 }}
     animate={{ opacity: 1, y: 0 }}
@@ -137,8 +140,8 @@ const StatCard = ({ icon: Icon, title, value, delay }) => (
   </motion.div>
 );
 
-// --- NEW Resource Card Component ---
-const ResourceCard = ({ resource, onEdit, onDelete, index }) => {
+// --- UPDATED Resource Card Component ---
+const ResourceCard = ({ resource, onEdit, onDelete, onSummarize, summary, index }) => {
   const [expanded, setExpanded] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const iconMap = { Article: FileText, Video: Video, Guide: BookOpen, PDF: FileText };
@@ -183,6 +186,9 @@ const ResourceCard = ({ resource, onEdit, onDelete, index }) => {
             </button>
             {showActions && (
               <div className="absolute right-0 top-10 bg-white rounded-lg shadow-lg p-2 z-20 min-w-[120px] border border-gray-200">
+                <button onClick={() => { onSummarize(resource); setShowActions(false); }} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md flex items-center">
+                  <FileText className="h-4 w-4 mr-2" /> Summarize
+                </button>
                 <button onClick={() => { onEdit(resource); setShowActions(false); }} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md flex items-center">
                   <Edit className="h-4 w-4 mr-2" /> Edit
                 </button>
@@ -193,6 +199,16 @@ const ResourceCard = ({ resource, onEdit, onDelete, index }) => {
             )}
           </div>
         </div>
+
+        {summary && (
+          <div className="mt-4 p-3 bg-teal-50/50 rounded-lg border border-teal-200/50 text-sm">
+            {summary.loading ? (
+              <p className="text-gray-500 animate-pulse">Generating summary...</p>
+            ) : (
+              <p className="text-gray-700 whitespace-pre-wrap">{summary.text}</p>
+            )}
+          </div>
+        )}
 
         <div className="mt-4">
           <button onClick={() => setExpanded(!expanded)} className="text-xs font-semibold text-teal-600 hover:text-teal-800">
@@ -236,10 +252,12 @@ const ResourceCard = ({ resource, onEdit, onDelete, index }) => {
   );
 };
 
+
 export default function ResourcesPage() {
   const [resources, setResources] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingResource, setEditingResource] = useState(null);
+  const [summaries, setSummaries] = useState({});
 
   useEffect(() => {
     const colRef = collection(db, "resources");
@@ -254,11 +272,12 @@ export default function ResourcesPage() {
   }, [resources]);
 
   const handleSave = async (data) => {
-    if (data.id) { // This is an edit
+    if (data.id) {
       const { id, ...payload } = data;
       await updateDoc(doc(db, "resources", id), payload);
-    } else { // This is a new resource
-      await addDoc(collection(db, "resources"), { ...data, createdAt: serverTimestamp() });
+    } else {
+      const { id, ...payload } = data;
+      await addDoc(collection(db, "resources"), { ...payload, createdAt: serverTimestamp() });
     }
     setModalOpen(false);
     setEditingResource(null);
@@ -270,9 +289,25 @@ export default function ResourcesPage() {
   };
 
   const handleDelete = async (id) => {
-    // It's better to use a custom modal here, but window.confirm is used as per original code.
     if (!window.confirm("Are you sure you want to delete this entire resource topic?")) return;
     await deleteDoc(doc(db, "resources", id));
+  };
+
+  const handleSummarize = async (resource) => {
+    setSummaries(prev => ({ ...prev, [resource.id]: { loading: true } }));
+    try {
+      const summaryText = await summarizeResource(resource.title, resource.links);
+      setSummaries(prev => ({
+        ...prev,
+        [resource.id]: { loading: false, text: summaryText }
+      }));
+    } catch (error) {
+      console.error("Failed to summarize:", error);
+      setSummaries(prev => ({
+        ...prev,
+        [resource.id]: { loading: false, text: "Could not generate summary." }
+      }));
+    }
   };
 
   const handleModalClose = () => {
@@ -306,8 +341,6 @@ export default function ResourcesPage() {
         transition={{ delay: 0.6, duration: 0.8 }}
       >
         <Card className="relative overflow-hidden rounded-2xl sm:rounded-3xl shadow-xl p-4 sm:p-6 bg-transparent border-none">
-
-          {/* NEW: Replaced table with card list */}
           <div className="relative z-10 space-y-4">
             {resources.length > 0 ? (
               resources.map((resource, index) => (
@@ -317,6 +350,8 @@ export default function ResourcesPage() {
                   index={index}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
+                  onSummarize={handleSummarize}
+                  summary={summaries[resource.id]}
                 />
               ))
             ) : (
