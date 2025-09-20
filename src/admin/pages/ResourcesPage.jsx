@@ -4,7 +4,7 @@ import { collection, addDoc, deleteDoc, doc, onSnapshot, serverTimestamp, update
 import { db } from "../../firebase";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash, FileText, Video, BookOpen, ExternalLink, Settings, Edit, Link as LinkIcon } from "lucide-react";
-import { summarizeResource } from "../services/AIService.js"; // Adjust path if needed
+import { summarizeResource } from "../../services/AIService"; // Adjust path if needed
 
 // --- Resource Modal (no changes) ---
 function ResourceModal({ initial, onClose, onSave }) {
