@@ -1,95 +1,70 @@
-import React, { useState, useEffect } from 'react';
-import Sidebar from '../components/Sidebar';
-import { auth } from '../firebase';
+import React, { useState, useEffect, useRef } from 'react';
+import Sidebar from '../components/Sidebar.jsx';
+import { auth, db } from '../firebase.js';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, runTransaction, doc, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+import { useLocation, Link } from 'react-router-dom';
 
-// --- MOCK DATA GENERATION ---
-// Helper functions to create a more dynamic and populated forum experience.
-
-const sampleTitles = [
-  "How do you manage exam anxiety the night before?",
-  "Best campus spots to decompress between lectures?",
-  "Anyone tried 5-minute journaling? Any tips?",
-  "Sharing my 3-step routine that calmed my exam panic",
-  "Feeling overwhelmed with coursework, how do you prioritize?",
-  "Tips for making friends in a new city?",
-  "Best apps for guided meditation?",
-  "How to maintain a healthy sleep schedule during finals?",
-  "Struggling with motivation for online classes",
-  "What are your favorite healthy and cheap meals?",
+// --- ANONYMITY HELPERS ---
+const animals = [
+  "Panda", "Tiger", "Lion", "Bear", "Wolf", "Fox", "Eagle", "Shark", "Owl", "Hawk",
+  "Badger", "Cobra", "Falcon", "Gorilla", "Jaguar", "Leopard", "Panther", "Python"
 ];
+const generateAnonymousUser = () => `Anonymous ${animals[Math.floor(Math.random() * animals.length)]}`;
+const getAvatarUrl = (name) => `https://ui-avatars.com/api/?name=${name.charAt(0)}&background=E6F3F0&color=006A57&bold=true`;
 
-const sampleContent = [
-  "I keep overthinking and can't fall asleep. Any routines or breathing exercises that worked for you?",
-  "Looking for quiet corners or nature spots where you like to relax or meditate.",
-  "Thinking about starting a quick nightly journal to reflect and unwind. How do you structure it?",
-  "Last night I tried a short routine: 1) 4-7-8 breathing, 2) 5 mins of stretching, 3) writing tomorrow's tasks. Woke up less tense. Hope it helps!",
-  "I have three major assignments due next week and I'm not sure where to even start. It's causing a lot of stress.",
-  "Just moved here for college and I'm finding it hard to connect with people outside of class.",
-  "I've heard good things about Headspace and Calm, but are there any free alternatives that are just as good?",
-  "It feels impossible to get 8 hours of sleep when I have to pull all-nighters to study. Is it even worth trying?",
-  "It's so easy to get distracted at home. How do you all stay focused and on track with your lectures?",
-  "I'm trying to eat better but I'm on a tight student budget. Looking for some simple and affordable recipe ideas!",
-];
-
-const sampleTags = [['Exams', 'Stress'], ['Lifestyle'], ['Habits'], ['Exams', 'Self-care'], ['Academics', 'Stress'], ['Social'], ['Apps', 'Mindfulness'], ['Sleep', 'Academics'], ['Motivation'], ['Health', 'Lifestyle']];
-
-// Generates a random anonymous user ID
-const generateAnonymousUser = () => `Anonymous${Math.floor(1000 + Math.random() * 9000)}`;
-
-// Generates a set of mock posts
-const generateMockPosts = (count) => {
-  const posts = [];
-  for (let i = 0; i < count; i++) {
-    const postIndex = i % sampleTitles.length;
-    posts.push({
-      id: i + 1,
-      upvotes: Math.floor(Math.random() * 250),
-      title: sampleTitles[postIndex],
-      author: generateAnonymousUser(),
-      authorImg: `https://placehold.co/40x40/E2E8F0/475569?text=${'A' + i}`,
-      time: `${Math.floor(Math.random() * 10) + 1}h ago`,
-      tags: sampleTags[postIndex],
-      content: sampleContent[postIndex],
-      comments: i === 0 ? [ // Add some default comments to the first post
-        { author: generateAnonymousUser(), authorImg: 'https://placehold.co/40x40/DDBEA9/A5A58D?text=B', time: '1h ago', text: 'Love the sticky note idea. It stops me from ruminating. Thanks for sharing!' },
-        { author: generateAnonymousUser(), authorImg: 'https://placehold.co/40x40/CB997E/FFE8D6?text=C', time: '35m ago', text: 'I pair 4-7-8 with box breathing (3 rounds). Helps during the day, too.' },
-      ] : [],
-      lastReply: `${Math.floor(Math.random() * 50) + 1}m ago`,
-    });
-  }
-  return posts.sort((a, b) => b.upvotes - a.upvotes);
-};
-
-
-const filters = ['All', 'Exams', 'Lifestyle', 'Stress', 'Habits', 'Academics', 'Social', 'Motivation'];
 
 // --- SVG Icons ---
-const UpvoteIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
+const UpvoteIcon = ({ hasVoted }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-colors ${hasVoted ? 'text-teal-500' : ''}`} fill={hasVoted ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+  </svg>
+);
 const SearchIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
+const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
+
 
 // --- Reusable Components ---
-const Header = ({ user, onNewPostClick }) => {
-  // FIX: More robust logic to handle fallback for profile picture initial
-  const pfpInitial = user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'U';
+const Header = ({ onNewPostClick }) => (
+  <header className="flex items-center justify-between p-6 bg-[#F7FCFB] sticky top-0 z-20 border-b border-gray-200/80">
+    <h2 className="text-xl font-bold text-gray-800">Community Forum</h2>
+    <button onClick={onNewPostClick} className="bg-[#2D9A83] text-white font-semibold py-2 px-4 rounded-lg hover:bg-teal-700 transition-colors text-sm">New Post</button>
+  </header>
+);
 
-  return (
-    <header className="flex items-center justify-between p-6 bg-[#F7FCFB] sticky top-0 z-20 border-b border-gray-200/80">
-      <h2 className="text-xl font-bold text-gray-800">Community Forum</h2>
-      <div className="flex items-center space-x-2">
-        <button onClick={onNewPostClick} className="bg-[#2D9A83] text-white font-semibold py-2 px-4 rounded-lg hover:bg-teal-700 transition-colors text-sm">New Post</button>
-        <img
-          src={user?.photoURL || `https://placehold.co/40x40/E2E8F0/475569?text=${pfpInitial.toUpperCase()}`}
-          alt="User avatar"
-          className="w-10 h-10 rounded-full"
-        />
+const Comment = ({ comment, user, onDelete }) => (
+  <div className="flex items-start space-x-3">
+    <img src={getAvatarUrl(comment.authorName)} alt="avatar" className="w-8 h-8 rounded-full" />
+    <div className="bg-gray-100 p-3 rounded-lg flex-1">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <span className="font-semibold text-sm text-gray-800">{comment.authorName}</span>
+          <span className="text-xs text-gray-400">• {comment.createdAt ? new Date(comment.createdAt.toDate()).toLocaleString() : 'Just now'}</span>
+        </div>
+        {user?.uid === comment.authorId && (
+          <button onClick={() => onDelete(comment.id)} className="text-gray-400 hover:text-red-500">
+            <TrashIcon />
+          </button>
+        )}
       </div>
-    </header>
-  );
-};
+      <p className="text-sm text-gray-700 mt-1">{comment.text}</p>
+    </div>
+  </div>
+);
 
-
-const PostCard = ({ post, onToggle, isActive, onCommentSubmit }) => {
+const PostCard = ({ post, user, onToggle, isActive, onUpvote, onCommentSubmit, onDeletePost }) => {
   const [commentText, setCommentText] = useState('');
+  const [comments, setComments] = useState([]);
+
+  useEffect(() => {
+    if (isActive) {
+      const q = query(collection(db, "comments"), where("postId", "==", post.id), orderBy("createdAt", "asc"));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        setComments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+      return () => unsubscribe();
+    }
+  }, [isActive, post.id]);
 
   const handleComment = (e) => {
     e.preventDefault();
@@ -99,35 +74,53 @@ const PostCard = ({ post, onToggle, isActive, onCommentSubmit }) => {
     }
   };
 
+  const handleDeleteComment = async (commentId) => {
+    if (window.confirm("Are you sure you want to delete this comment?")) {
+      await deleteDoc(doc(db, "comments", commentId));
+    }
+  }
+
   return (
-    <div onClick={onToggle} className={`bg-white p-4 rounded-2xl cursor-pointer border ${isActive ? 'border-teal-500 shadow-md' : 'border-gray-200/70 hover:border-gray-300'}`}>
-      <div className="flex space-x-4">
-        <div className="flex flex-col items-center space-y-1 text-gray-500">
-          <button className="p-1 rounded-full hover:bg-gray-100"><UpvoteIcon /></button>
-          <span className="font-semibold text-sm text-gray-800">{post.upvotes}</span>
-        </div>
-        <div className="flex-1">
-          <h3 className="font-bold text-gray-800">{post.title}</h3>
-          <div className="flex items-center flex-wrap gap-x-2 text-sm text-gray-500 mt-1">
-            <img src={post.authorImg} className="w-5 h-5 rounded-full" />
-            <span>by {post.author}</span>
-            <span>•</span>
-            <span>{post.time}</span>
-            {post.tags.map(tag => <span key={tag} className="bg-gray-100 text-gray-600 text-xs font-semibold px-2 py-0.5 rounded-full">{tag}</span>)}
+    <div className={`bg-white rounded-2xl border ${isActive ? 'border-teal-500 shadow-lg' : 'border-gray-200/70 hover:border-gray-300 transition-shadow'}`}>
+      <div onClick={onToggle} className="p-4 cursor-pointer">
+        <div className="flex space-x-4">
+          <div className="flex flex-col items-center space-y-1 text-gray-500">
+            <button onClick={(e) => { e.stopPropagation(); onUpvote(post.id); }} className="p-1 rounded-full hover:bg-gray-100">
+              <UpvoteIcon hasVoted={post.userHasVoted} />
+            </button>
+            <span className="font-semibold text-sm text-gray-800">{post.upvotes || 0}</span>
           </div>
-          <p className="text-gray-600 mt-2 text-sm">{post.content}</p>
-          <div className="flex items-center justify-end mt-3">
-            <p className="text-xs text-gray-400">Last reply {post.lastReply}</p>
+          <div className="flex-1">
+            <h3 className="font-bold text-gray-800">{post.title}</h3>
+            <div className="flex items-center flex-wrap gap-x-4 text-sm text-gray-500 mt-1">
+              <div className="flex items-center space-x-2">
+                <img src={getAvatarUrl(post.authorName)} alt="avatar" className="w-5 h-5 rounded-full" />
+                <span>by {post.authorName}</span>
+              </div>
+              <span>•</span>
+              <span>{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString() : 'Just now'}</span>
+            </div>
+            {post.tags && post.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {post.tags.map(tag => <span key={tag} className="bg-gray-100 text-gray-600 text-xs font-semibold px-2 py-0.5 rounded-full">{tag}</span>)}
+              </div>
+            )}
+            <p className="text-gray-600 mt-2 text-sm">{post.content}</p>
           </div>
+          {user?.uid === post.authorId && (
+            <button onClick={(e) => { e.stopPropagation(); onDeletePost(post.id); }} className="text-gray-400 hover:text-red-500 h-fit">
+              <TrashIcon />
+            </button>
+          )}
         </div>
       </div>
       {isActive && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="pl-12 mt-4 pt-4 border-t border-gray-200/80"
-        >
+        <div onClick={(e) => e.stopPropagation()} className="px-4 pb-4 pt-4 border-t border-gray-200/80">
+          <div className="space-y-4 mb-4">
+            {comments.map((comment) => <Comment key={comment.id} comment={comment} user={user} onDelete={handleDeleteComment} />)}
+          </div>
           <form onSubmit={handleComment} className="flex items-start space-x-3">
-            <img src={auth.currentUser?.photoURL || `https://placehold.co/40x40/006A57/E6F3F0?text=U`} className="w-8 h-8 rounded-full" />
+            <img src={getAvatarUrl("You")} alt="your avatar" className="w-8 h-8 rounded-full" />
             <div className="flex-1">
               <textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Write a supportive comment..." className="w-full bg-gray-50 rounded-lg p-2 border border-gray-200 focus:outline-none focus:ring-1 focus:ring-teal-500 text-sm" rows="2"></textarea>
               <div className="flex justify-end mt-2">
@@ -135,41 +128,30 @@ const PostCard = ({ post, onToggle, isActive, onCommentSubmit }) => {
               </div>
             </div>
           </form>
-          <div className="space-y-4 mt-4">
-            {post.comments.map((comment, index) => (
-              <div key={index} className="flex items-start space-x-3">
-                <img src={comment.authorImg} className="w-8 h-8 rounded-full" />
-                <div className="bg-gray-100 p-3 rounded-lg flex-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-semibold text-sm text-gray-800">{comment.author}</span>
-                    <span className="text-xs text-gray-400">• {comment.time}</span>
-                  </div>
-                  <p className="text-sm text-gray-700 mt-1">{comment.text}</p>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       )}
     </div>
   );
 };
 
-const RightSidebar = ({ activeFilter, setActiveFilter, onNewPostClick }) => (
-  <aside className="w-80 p-6 space-y-6 hidden lg:block">
-    <div className="bg-white p-4 rounded-2xl border border-gray-200/70">
-      <h3 className="font-semibold text-gray-800">Create</h3>
-      <p className="text-sm text-gray-500 mt-1">Start a new discussion</p>
-      <button onClick={onNewPostClick} className="w-full mt-3 bg-[#2D9A83] text-white font-semibold py-2 rounded-lg hover:bg-teal-700 transition-colors text-sm">New Post</button>
-    </div>
-    <div className="bg-white p-4 rounded-2xl border border-gray-200/70">
-      <h3 className="font-semibold text-gray-800 mb-3">Filters</h3>
-      <div className="space-y-2">
-        {filters.map(filter => (<button key={filter} onClick={() => setActiveFilter(filter)} className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors ${activeFilter === filter ? 'bg-teal-50 text-teal-700 font-semibold' : 'text-gray-600 hover:bg-gray-100'}`}>{filter}</button>))}
+const RightSidebar = ({ activeFilter, setActiveFilter, onNewPostClick }) => {
+  const filters = ['All', 'Exams', 'Lifestyle', 'Stress', 'Habits', 'Academics', 'Social', 'Motivation', 'Homesickness'];
+  return (
+    <aside className="w-80 p-6 space-y-6 hidden lg:block">
+      <div className="bg-white p-4 rounded-2xl border border-gray-200/70">
+        <h3 className="font-semibold text-gray-800">Create</h3>
+        <p className="text-sm text-gray-500 mt-1">Start a new discussion</p>
+        <button onClick={onNewPostClick} className="w-full mt-3 bg-[#2D9A83] text-white font-semibold py-2 rounded-lg hover:bg-teal-700 transition-colors text-sm">New Post</button>
       </div>
-    </div>
-  </aside>
-);
+      <div className="bg-white p-4 rounded-2xl border border-gray-200/70">
+        <h3 className="font-semibold text-gray-800 mb-3">Filters</h3>
+        <div className="space-y-2">
+          {filters.map(filter => (<button key={filter} onClick={() => setActiveFilter(filter)} className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors ${activeFilter === filter ? 'bg-teal-50 text-teal-700 font-semibold' : 'text-gray-600 hover:bg-gray-100'}`}>{filter}</button>))}
+        </div>
+      </div>
+    </aside>
+  );
+};
 
 const NewPostModal = ({ isOpen, onClose, onSave }) => {
   const [title, setTitle] = useState('');
@@ -178,20 +160,14 @@ const NewPostModal = ({ isOpen, onClose, onSave }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const newPost = {
-      id: Date.now(),
-      upvotes: 0,
+    onSave({
       title,
-      author: generateAnonymousUser(),
-      authorImg: `https://placehold.co/40x40/E2E8F0/475569?text=A`,
-      time: 'Just now',
-      tags: tags.split(',').map(tag => tag.trim()).filter(Boolean),
       content,
-      comments: [],
-      lastReply: 'Just now',
-    };
-    onSave(newPost);
-    onClose(); // Close modal after saving
+      tags: tags.split(',').map(tag => tag.trim()).filter(Boolean),
+    });
+    // Reset fields and close
+    setTitle(''); setContent(''); setTags('');
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -199,7 +175,7 @@ const NewPostModal = ({ isOpen, onClose, onSave }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
       <div className="bg-white p-6 rounded-lg w-full max-w-lg">
-        <h2 className="text-xl font-bold mb-4">Create a New Post</h2>
+        <h2 className="text-xl font-bold mb-4">Create an Anonymous Post</h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">Title</label>
@@ -215,7 +191,7 @@ const NewPostModal = ({ isOpen, onClose, onSave }) => {
           </div>
           <div className="flex justify-end space-x-2">
             <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 rounded-md">Cancel</button>
-            <button type="submit" className="px-4 py-2 bg-teal-500 text-white rounded-md">Post</button>
+            <button type="submit" className="px-4 py-2 bg-teal-500 text-white rounded-md">Post Anonymously</button>
           </div>
         </form>
       </div>
@@ -227,53 +203,114 @@ const NewPostModal = ({ isOpen, onClose, onSave }) => {
 export default function ForumPage() {
   const [user, setUser] = useState(null);
   const [forumPosts, setForumPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('All');
-  const [expandedPostId, setExpandedPostId] = useState(1); // Default open first post
+  const [expandedPostId, setExpandedPostId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
-    // Fetch current user and wait for it
-    const unsubscribe = auth.onAuthStateChanged(currentUser => {
-      setUser(currentUser); // Will be null initially, then the user object
-    });
-
-    // Load initial posts
-    setForumPosts(generateMockPosts(15));
+    const unsubscribe = onAuthStateChanged(auth, currentUser => setUser(currentUser));
     return () => unsubscribe();
   }, []);
 
-  const handleAddPost = (newPost) => {
-    setForumPosts(prevPosts => [newPost, ...prevPosts]);
-    setExpandedPostId(newPost.id); // Open the new post
+  useEffect(() => {
+    if (!user) return; // Don't fetch posts until user is known
+    setLoading(true);
+    const postsQuery = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+
+    const unsubscribe = onSnapshot(postsQuery, async (querySnapshot) => {
+      const postsData = await Promise.all(querySnapshot.docs.map(async docSnapshot => {
+        const post = { id: docSnapshot.id, ...docSnapshot.data() };
+        const voteRef = doc(collection(db, 'posts', post.id, 'votes'), user.uid);
+        const voteSnap = await getDocs(query(collection(db, 'posts', post.id, 'votes'), where('__name__', '==', user.uid)));
+        post.userHasVoted = !voteSnap.empty;
+        return post;
+      }));
+
+      setForumPosts(postsData);
+      if (postsData.length > 0 && !expandedPostId) {
+        setExpandedPostId(postsData[0].id);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user, expandedPostId]);
+
+
+  const handleAddPost = async (newPost) => {
+    if (!user) { alert("You must be logged in to post."); return; }
+    const postData = {
+      ...newPost,
+      authorId: user.uid,
+      authorName: generateAnonymousUser(),
+      createdAt: serverTimestamp(),
+      upvotes: 0,
+    };
+    const docRef = await addDoc(collection(db, "posts"), postData);
+    setExpandedPostId(docRef.id);
   };
 
-  const handleCommentSubmit = (postId, commentText) => {
-    const newComment = {
-      author: generateAnonymousUser(),
-      authorImg: user.photoURL || `https://placehold.co/40x40/006A57/E6F3F0?text=${user.displayName?.charAt(0) || 'U'}`,
-      time: 'Just now',
+  const handleCommentSubmit = async (postId, commentText) => {
+    if (!user) { alert("You must be logged in to comment."); return; }
+    await addDoc(collection(db, "comments"), {
+      postId,
       text: commentText,
-    };
-    setForumPosts(posts => posts.map(post =>
-      post.id === postId
-        ? { ...post, comments: [...post.comments, newComment], lastReply: 'Just now' }
-        : post
-    ));
+      authorId: user.uid,
+      authorName: generateAnonymousUser(),
+      createdAt: serverTimestamp(),
+    });
   };
+
+  const handleUpvote = async (postId) => {
+    if (!user) { alert("You must be logged in to vote."); return; }
+    const postRef = doc(db, 'posts', postId);
+    const voteRef = doc(collection(postRef, 'votes'), user.uid);
+
+    await runTransaction(db, async (transaction) => {
+      const voteDoc = await transaction.get(voteRef);
+      const postDoc = await transaction.get(postRef);
+      if (!postDoc.exists()) throw "Post does not exist!";
+
+      const currentUpvotes = postDoc.data().upvotes || 0;
+      if (voteDoc.exists()) {
+        transaction.update(postRef, { upvotes: currentUpvotes - 1 });
+        transaction.delete(voteRef);
+      } else {
+        transaction.update(postRef, { upvotes: currentUpvotes + 1 });
+        transaction.set(voteRef, { votedAt: serverTimestamp() });
+      }
+    });
+  };
+
+  const handleDeletePost = async (postId) => {
+    const postToDelete = forumPosts.find(p => p.id === postId);
+    if (postToDelete.authorId !== user.uid) {
+      alert("You can only delete your own posts.");
+      return;
+    }
+    if (window.confirm("Are you sure you want to delete this post?")) {
+      // Simplified cascade delete, for production consider a cloud function
+      const commentsQuery = query(collection(db, "comments"), where("postId", "==", postId));
+      const commentsSnapshot = await getDocs(commentsQuery);
+      commentsSnapshot.forEach(commentDoc => deleteDoc(commentDoc.ref));
+      await deleteDoc(doc(db, "posts", postId));
+    }
+  }
 
   const filteredPosts = activeFilter === 'All'
     ? forumPosts
-    : forumPosts.filter(post => post.tags.includes(activeFilter));
+    : forumPosts.filter(post => post.tags && post.tags.includes(activeFilter));
 
-  const togglePost = (id) => {
-    setExpandedPostId(expandedPostId === id ? null : id);
-  };
+  const togglePost = (id) => setExpandedPostId(expandedPostId === id ? null : id);
 
-  // FIX: Show a loading state until the user object is available
-  if (!user) {
+  if (loading || !user) {
     return (
       <div className="flex bg-[#F7FCFB] min-h-screen font-sans justify-center items-center">
-        <div>Loading forum...</div>
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-teal-200 border-t-teal-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading forum...</p>
+        </div>
       </div>
     );
   }
@@ -282,7 +319,7 @@ export default function ForumPage() {
     <div className="flex bg-[#F7FCFB] min-h-screen font-sans">
       <Sidebar />
       <main className="flex-1 flex flex-col">
-        <Header user={user} onNewPostClick={() => setIsModalOpen(true)} />
+        <Header onNewPostClick={() => setIsModalOpen(true)} />
         <div className="flex-1 flex justify-between">
           <div className="flex-1 p-6">
             <div className="flex items-center justify-between mb-4">
@@ -292,9 +329,21 @@ export default function ForumPage() {
               </div>
             </div>
             <div className="space-y-4">
-              {filteredPosts.map(post => (
-                <PostCard key={post.id} post={post} onToggle={() => togglePost(post.id)} isActive={expandedPostId === post.id} onCommentSubmit={handleCommentSubmit} />
-              ))}
+              {filteredPosts.length > 0 ? (
+                filteredPosts.map(post => (
+                  <PostCard key={post.id} post={post} user={user} onToggle={() => togglePost(post.id)} isActive={expandedPostId === post.id} onUpvote={handleUpvote} onCommentSubmit={handleCommentSubmit} onDeletePost={handleDeletePost} />
+                ))
+              ) : (
+                !loading && (
+                  <div className="text-center py-16 bg-white rounded-2xl border border-gray-200/70">
+                    <h3 className="text-lg font-semibold text-gray-700">No Discussions Yet</h3>
+                    <p className="text-gray-500 mt-2">Be the first to start a conversation by creating a new post!</p>
+                    <button onClick={() => setIsModalOpen(true)} className="mt-4 bg-[#2D9A83] text-white font-semibold py-2 px-4 rounded-lg hover:bg-teal-700 transition-colors text-sm">
+                      Create Post
+                    </button>
+                  </div>
+                )
+              )}
             </div>
           </div>
           <RightSidebar activeFilter={activeFilter} setActiveFilter={setActiveFilter} onNewPostClick={() => setIsModalOpen(true)} />

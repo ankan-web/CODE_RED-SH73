@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { signOut, onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '../firebase';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { auth, db } from '../firebase.js';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc } from 'firebase/firestore';
 
 // --- Custom Hook for Dark Mode (No changes) ---
 const useDarkMode = () => {
@@ -157,8 +157,8 @@ const NavItem = ({ to, icon, children }) => {
     <Link
       to={to}
       className={`group flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 relative overflow-hidden ${isActive
-          ? "bg-gradient-to-r from-teal-500/10 to-blue-500/10 text-teal-600 font-semibold shadow-sm border border-teal-100"
-          : "text-gray-600 hover:bg-gray-50 hover:text-gray-800 hover:scale-105"
+        ? "bg-gradient-to-r from-teal-500/10 to-blue-500/10 text-teal-600 font-semibold shadow-sm border border-teal-100"
+        : "text-gray-600 hover:bg-gray-50 hover:text-gray-800 hover:scale-105"
         }`}
     >
       {isActive && (
@@ -297,55 +297,61 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [isEmotionModalOpen, setIsEmotionModalOpen] = useState(false);
   const [userBookings, setUserBookings] = useState([]);
-  const [loadingBookings, setLoadingBookings] = useState(false);
+  const [loadingBookings, setLoadingBookings] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+      if (currentUser) {
+        setUser(currentUser);
+      } else {
+        navigate('/login');
+      }
       setLoading(false);
-      if (!currentUser) navigate('/login');
     });
     return () => unsubscribe();
   }, [navigate]);
 
-  // Fetch user bookings
   useEffect(() => {
-    const fetchBookings = async () => {
-      if (!user) return;
+    if (!user) return;
 
-      setLoadingBookings(true);
-      try {
-        const bookingsRef = collection(db, 'bookings');
-        const q = query(
-          bookingsRef,
-          where('userId', '==', user.uid),
-          orderBy('createdAt', 'desc'),
-          limit(3)
-        );
+    setLoadingBookings(true);
+    const bookingsRef = collection(db, 'bookings');
+    const q = query(
+      bookingsRef,
+      where('userId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
 
-        const querySnapshot = await getDocs(q);
-        const bookings = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const bookings = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setUserBookings(bookings);
+      setLoadingBookings(false);
+    });
 
-        setUserBookings(bookings);
-      } catch (error) {
-        console.error("Error fetching bookings:", error);
-      } finally {
-        setLoadingBookings(false);
-      }
-    };
-
-    if (user) {
-      fetchBookings();
-    }
+    return () => unsubscribe();
   }, [user]);
 
   const handleLogout = async () => {
     await signOut(auth);
     navigate('/');
+  };
+
+  const handleCancelBooking = async (bookingId) => {
+    if (window.confirm("Are you sure you want to cancel this session?")) {
+      const bookingRef = doc(db, 'bookings', bookingId);
+      try {
+        await updateDoc(bookingRef, {
+          status: 'cancelled'
+        });
+      } catch (error) {
+        console.error("Error cancelling booking:", error);
+        alert("Could not cancel the booking. Please try again.");
+      }
+    }
   };
 
   const getDisplayName = (user) => {
@@ -604,8 +610,8 @@ export default function DashboardPage() {
 
                 {loadingBookings ? (
                   <div className="space-y-3">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="animate-pulse">
+                    {[1, 2].map(i => (
+                      <div key={i} className="animate-pulse p-4">
                         <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
                         <div className="h-3 bg-gray-200 rounded w-1/2"></div>
                       </div>
@@ -629,12 +635,15 @@ export default function DashboardPage() {
                               </p>
                             </div>
                           </div>
-                          <div className={`text-xs font-semibold px-2 py-1 rounded-full ${booking.status === 'confirmed'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-yellow-100 text-yellow-700'
-                            }`}>
-                            {booking.status || 'confirmed'}
-                          </div>
+                          {booking.status === 'confirmed' ? (
+                            <button onClick={() => handleCancelBooking(booking.id)} className="text-xs font-semibold text-red-600 bg-red-100 px-2 py-1 rounded-full hover:bg-red-200 transition-colors">
+                              Cancel
+                            </button>
+                          ) : (
+                            <div className="text-xs font-semibold px-2 py-1 rounded-full bg-gray-200 text-gray-600 capitalize">
+                              {booking.status}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -702,3 +711,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
